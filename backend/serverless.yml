@@ -1,0 +1,265 @@
+service: hirebuddy-backend
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  timeout: 30
+  memorySize: 256
+  
+  environment:
+    STAGE: ${self:provider.stage}
+    SUPABASE_URL: ${env:SUPABASE_URL}
+    SUPABASE_SERVICE_ROLE_KEY: ${env:SUPABASE_SERVICE_ROLE_KEY}
+    JWT_SECRET: ${env:JWT_SECRET}
+    CORS_ORIGIN: ${env:CORS_ORIGIN, '*'}
+  
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: '*'
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001
+    host: 0.0.0.0
+
+functions:
+  # Authentication endpoints
+  authLogin:
+    handler: src/handlers/auth.login
+    events:
+      - http:
+          path: /auth/login
+          method: post
+          cors: true
+          
+  authSignup:
+    handler: src/handlers/auth.signup
+    events:
+      - http:
+          path: /auth/signup
+          method: post
+          cors: true
+          
+  authRefresh:
+    handler: src/handlers/auth.refresh
+    events:
+      - http:
+          path: /auth/refresh
+          method: post
+          cors: true
+          
+  authLogout:
+    handler: src/handlers/auth.logout
+    events:
+      - http:
+          path: /auth/logout
+          method: post
+          cors: true
+
+  # User Profile endpoints
+  getProfile:
+    handler: src/handlers/profile.getProfile
+    events:
+      - http:
+          path: /profile
+          method: get
+          cors: true
+          
+  updateProfile:
+    handler: src/handlers/profile.updateProfile
+    events:
+      - http:
+          path: /profile
+          method: put
+          cors: true
+          
+  uploadProfileImage:
+    handler: src/handlers/profile.uploadProfileImage
+    events:
+      - http:
+          path: /profile/image
+          method: post
+          cors: true
+          
+  uploadResume:
+    handler: src/handlers/profile.uploadResume
+    events:
+      - http:
+          path: /profile/resume
+          method: post
+          cors: true
+
+  # Job endpoints
+  getJobs:
+    handler: src/handlers/jobs.getJobs
+    events:
+      - http:
+          path: /jobs
+          method: get
+          cors: true
+          
+  getJob:
+    handler: src/handlers/jobs.getJob
+    events:
+      - http:
+          path: /jobs/{id}
+          method: get
+          cors: true
+          
+  getRemoteJobs:
+    handler: src/handlers/jobs.getRemoteJobs
+    events:
+      - http:
+          path: /jobs/remote
+          method: get
+          cors: true
+          
+  getExclusiveJobs:
+    handler: src/handlers/jobs.getExclusiveJobs
+    events:
+      - http:
+          path: /jobs/exclusive
+          method: get
+          cors: true
+
+  # Job Application endpoints
+  createApplication:
+    handler: src/handlers/applications.createApplication
+    events:
+      - http:
+          path: /applications
+          method: post
+          cors: true
+          
+  getUserApplications:
+    handler: src/handlers/applications.getUserApplications
+    events:
+      - http:
+          path: /applications
+          method: get
+          cors: true
+          
+  updateApplicationStatus:
+    handler: src/handlers/applications.updateApplicationStatus
+    events:
+      - http:
+          path: /applications/{id}/status
+          method: put
+          cors: true
+
+  # Contact endpoints
+  getContacts:
+    handler: src/handlers/contacts.getContacts
+    events:
+      - http:
+          path: /contacts
+          method: get
+          cors: true
+          
+  createContact:
+    handler: src/handlers/contacts.createContact
+    events:
+      - http:
+          path: /contacts
+          method: post
+          cors: true
+          
+  updateContact:
+    handler: src/handlers/contacts.updateContact
+    events:
+      - http:
+          path: /contacts/{id}
+          method: put
+          cors: true
+          
+  deleteContact:
+    handler: src/handlers/contacts.deleteContact
+    events:
+      - http:
+          path: /contacts/{id}
+          method: delete
+          cors: true
+
+  # Email Campaign endpoints - REMOVED (feature not used in frontend)
+
+  # Dashboard & Analytics endpoints
+  getDashboardStats:
+    handler: src/handlers/dashboard.getDashboardStats
+    events:
+      - http:
+          path: /dashboard/stats
+          method: get
+          cors: true
+          
+  getRecentActivity:
+    handler: src/handlers/dashboard.getRecentActivity
+    events:
+      - http:
+          path: /dashboard/activity
+          method: get
+          cors: true
+
+  # Premium endpoints
+  checkPremiumStatus:
+    handler: src/handlers/premium.checkPremiumStatus
+    events:
+      - http:
+          path: /premium/status
+          method: get
+          cors: true
+          
+  getPremiumData:
+    handler: src/handlers/premium.getPremiumData
+    events:
+      - http:
+          path: /premium/data
+          method: get
+          cors: true
+
+  # Email Usage endpoints
+  getEmailUsage:
+    handler: src/handlers/email.getEmailUsage
+    events:
+      - http:
+          path: /email/usage
+          method: get
+          cors: true
+          
+  incrementEmailCount:
+    handler: src/handlers/email.incrementEmailCount
+    events:
+      - http:
+          path: /email/increment
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    ApiGatewayRestApi:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: ${self:service}-${self:provider.stage}
+        EndpointConfiguration:
+          Types:
+            - EDGE
+        Policy:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: '*'
+              Action: execute-api:Invoke
+              Resource: '*' 
