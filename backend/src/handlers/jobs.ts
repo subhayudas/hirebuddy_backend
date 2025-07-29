@@ -43,7 +43,6 @@ export const getJobs = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       company,
       sortBy = 'created_at',
       sortOrder = 'desc',
-      limit = 20,
       offset = 0
     } = validation.data;
 
@@ -86,9 +85,6 @@ export const getJobs = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       // Apply sorting
       queryBuilder = queryBuilder.order(sortBy, { ascending: sortOrder === 'asc' });
 
-      // Apply pagination
-      queryBuilder = queryBuilder.range(offset, offset + limit - 1);
-
       return queryBuilder;
     });
 
@@ -100,7 +96,6 @@ export const getJobs = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     return successResponse({
       jobs: jobs || [],
       pagination: {
-        limit,
         offset,
         total: jobs?.length || 0
       }
@@ -170,7 +165,6 @@ export const getRemoteJobs = async (event: APIGatewayProxyEvent): Promise<APIGat
       company,
       sortBy = 'created_at',
       sortOrder = 'desc',
-      limit = 20,
       offset = 0
     } = validation.data;
 
@@ -237,13 +231,9 @@ export const getRemoteJobs = async (event: APIGatewayProxyEvent): Promise<APIGat
       ...(exclusiveJobs.data || [])
     ];
 
-    // Apply pagination to combined results
-    const paginatedJobs = allJobs.slice(offset, offset + limit);
-
     return successResponse({
-      jobs: paginatedJobs,
+      jobs: allJobs,
       pagination: {
-        limit,
         offset,
         total: allJobs.length
       }
@@ -281,7 +271,6 @@ export const getExclusiveJobs = async (event: APIGatewayProxyEvent): Promise<API
       company,
       sortBy = 'priority_level',
       sortOrder = 'asc',
-      limit = 20,
       offset = 0
     } = validation.data;
 
@@ -320,7 +309,7 @@ export const getExclusiveJobs = async (event: APIGatewayProxyEvent): Promise<API
         queryBuilder = queryBuilder.order('created_at', { ascending: false });
       }
 
-      return queryBuilder.range(offset, offset + limit - 1);
+      return queryBuilder;
     });
 
     if (error) {
@@ -331,7 +320,6 @@ export const getExclusiveJobs = async (event: APIGatewayProxyEvent): Promise<API
     return successResponse({
       jobs: jobs || [],
       pagination: {
-        limit,
         offset,
         total: jobs?.length || 0
       }
