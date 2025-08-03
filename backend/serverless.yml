@@ -16,6 +16,7 @@ provider:
     SUPABASE_SERVICE_ROLE_KEY: ${env:SUPABASE_SERVICE_ROLE_KEY}
     JWT_SECRET: ${env:JWT_SECRET}
     CORS_ORIGIN: ${env:CORS_ORIGIN, '*'}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
   
   iam:
     role:
@@ -244,6 +245,15 @@ functions:
     events:
       - http:
           path: /email/increment
+          method: post
+          cors: true
+
+  # OpenAI proxy endpoint
+  openaiProxy:
+    handler: src/handlers/openai.openaiProxy
+    events:
+      - http:
+          path: /openai/proxy
           method: post
           cors: true
 

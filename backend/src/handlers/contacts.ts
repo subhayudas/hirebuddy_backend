@@ -38,7 +38,7 @@ export const getContacts = async (event: APIGatewayProxyEvent): Promise<APIGatew
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       query = async (client: any) =>
-        client.from('email_database')
+        client.from('testdb')
           .select('*')
           .not('email', 'is', null)
           .neq('email', '')
@@ -47,7 +47,7 @@ export const getContacts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     } else {
       // Get all contacts
       query = async (client: any) =>
-        client.from('email_database')
+        client.from('testdb')
           .select('*')
           .order('created_at', { ascending: false });
     }
@@ -116,7 +116,7 @@ export const createContact = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     // Add contact to database
     const { data: contact, error } = await executeQuery(async (client) =>
-      client.from('email_database')
+      client.from('testdb')
         .insert([contactData])
         .select()
         .single()
@@ -172,7 +172,7 @@ export const updateContact = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     // Update contact in database
     const { data: contact, error } = await executeQuery(async (client) =>
-      client.from('email_database')
+      client.from('testdb')
         .update(updates)
         .eq('id', contactId)
         .select()
@@ -215,7 +215,7 @@ export const deleteContact = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     // Delete contact from database
     const { error } = await executeQuery(async (client) =>
-      client.from('email_database')
+      client.from('testdb')
         .delete()
         .eq('id', contactId)
     );

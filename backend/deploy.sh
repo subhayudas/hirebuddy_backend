@@ -17,7 +17,7 @@ source .env
 set +a  # stop automatically exporting
 
 # Validate required variables
-required_vars=("SUPABASE_URL" "SUPABASE_SERVICE_ROLE_KEY" "JWT_SECRET")
+required_vars=("SUPABASE_URL" "SUPABASE_SERVICE_ROLE_KEY" "JWT_SECRET" "OPENAI_API_KEY")
 for var in "${required_vars[@]}"; do
     if [ -z "${!var}" ]; then
         echo "❌ Error: $var is not set in .env file"
