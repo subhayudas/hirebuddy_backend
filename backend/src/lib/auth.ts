@@ -23,14 +23,26 @@ export const extractTokenFromHeader = (event: APIGatewayProxyEvent): string | nu
  * In production, use proper JWT library
  */
 const base64urlEscape = (str: string): string => {
-  return str.replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=/g, '');
+  return str
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 };
 
 const base64urlUnescape = (str: string): string => {
-  str += new Array(5 - str.length % 4).join('=');
-  return str.replace(/\-/g, '+').replace(/_/g, '/');
+  const padLength = (4 - (str.length % 4)) % 4;
+  const padded = str + '='.repeat(padLength);
+  return padded.replace(/\-/g, '+').replace(/_/g, '/');
+};
+
+const base64UrlEncode = (input: string): string => {
+  const base64 = Buffer.from(input, 'utf8').toString('base64');
+  return base64urlEscape(base64);
+};
+
+const base64UrlDecode = (input: string): string => {
+  const unescaped = base64urlUnescape(input);
+  return Buffer.from(unescaped, 'base64').toString('utf8');
 };
 
 /**
@@ -53,14 +65,27 @@ export const verifyToken = (token: string): DecodedToken | null => {
       return null;
     }
 
-    const payload = JSON.parse(atob(base64urlUnescape(payloadPart)));
+    const payload = JSON.parse(base64UrlDecode(payloadPart));
     
     // Simple expiration check
     if (payload.exp && Date.now() >= payload.exp * 1000) {
       return null;
     }
 
-    return payload as DecodedToken;
+    // Map possible Supabase/JWT payload shapes to our DecodedToken
+    const mapped: DecodedToken = {
+      userId: payload.userId || payload.sub,
+      email: payload.email,
+      iat: payload.iat,
+      exp: payload.exp
+    };
+
+    if (!mapped.userId || !mapped.email) {
+      // If missing essential fields, consider invalid
+      return null;
+    }
+
+    return mapped;
   } catch (error) {
     console.error('Token verification failed:', error);
     return null;
@@ -88,11 +113,11 @@ export const generateToken = (user: AuthenticatedUser): string => {
     exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
   };
 
-  const encodedHeader = base64urlEscape(btoa(JSON.stringify(header)));
-  const encodedPayload = base64urlEscape(btoa(JSON.stringify(payload)));
-  
-  // Simple signature (in production, use proper HMAC)
-  const signature = base64urlEscape(btoa(`${encodedHeader}.${encodedPayload}.${jwtSecret}`));
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+
+  // Simple signature placeholder (not secure). In production, use HMAC SHA-256.
+  const signature = base64UrlEncode(`${encodedHeader}.${encodedPayload}.${jwtSecret}`);
 
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 };

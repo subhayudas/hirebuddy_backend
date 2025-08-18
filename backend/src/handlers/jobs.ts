@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from '../types';
 import { executeQuery } from '../lib/database';
-import { successResponse, errorResponse, corsResponse, notFoundResponse } from '../lib/response';
-import { getAuthenticatedUser } from '../lib/auth';
+import { successResponse, errorResponse, corsResponse, notFoundResponse, unauthorizedResponse } from '../lib/response';
+import { requireAuth } from '../lib/auth';
 import { z } from 'zod';
 
 // Validation schemas
@@ -46,8 +46,8 @@ export const getJobs = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       offset = 0
     } = validation.data;
 
-    // Get authenticated user (optional for job search)
-    const user = getAuthenticatedUser(event);
+    // Require authentication
+    const user = requireAuth(event);
 
     // Build query for jobs
     const { data: jobs, error } = await executeQuery(async (client) => {
@@ -103,6 +103,9 @@ export const getJobs = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
   } catch (error) {
     console.error('Get jobs error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
     return errorResponse('Internal server error', 500);
   }
 };
@@ -116,6 +119,9 @@ export const getJob = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
     if (event.httpMethod === 'OPTIONS') {
       return corsResponse();
     }
+
+    // Require authentication
+    const user = requireAuth(event);
 
     const jobId = event.pathParameters?.id;
     if (!jobId) {
@@ -136,6 +142,9 @@ export const getJob = async (event: APIGatewayProxyEvent): Promise<APIGatewayPro
 
   } catch (error) {
     console.error('Get job error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
     return errorResponse('Internal server error', 500);
   }
 };
@@ -167,6 +176,9 @@ export const getRemoteJobs = async (event: APIGatewayProxyEvent): Promise<APIGat
       sortOrder = 'desc',
       offset = 0
     } = validation.data;
+
+    // Require authentication
+    const user = requireAuth(event);
 
     // Get remote jobs from both regular and exclusive tables
     const [regularJobs, exclusiveJobs] = await Promise.all([
@@ -241,6 +253,9 @@ export const getRemoteJobs = async (event: APIGatewayProxyEvent): Promise<APIGat
 
   } catch (error) {
     console.error('Get remote jobs error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
     return errorResponse('Internal server error', 500);
   }
 };
@@ -273,6 +288,9 @@ export const getExclusiveJobs = async (event: APIGatewayProxyEvent): Promise<API
       sortOrder = 'asc',
       offset = 0
     } = validation.data;
+
+    // Require authentication
+    const user = requireAuth(event);
 
     // Get exclusive jobs
     const { data: jobs, error } = await executeQuery(async (client) => {
@@ -327,6 +345,9 @@ export const getExclusiveJobs = async (event: APIGatewayProxyEvent): Promise<API
 
   } catch (error) {
     console.error('Get exclusive jobs error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
     return errorResponse('Internal server error', 500);
   }
 }; 

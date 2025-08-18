@@ -32,7 +32,7 @@ export const getSupabaseClient = (): SupabaseClient => {
 export const testDatabaseConnection = async (): Promise<{ success: boolean; message: string }> => {
   try {
     const client = getSupabaseClient();
-    const { data, error } = await client.from('user_profiles').select('id').limit(1);
+    const { data, error } = await client.from('email_database').select('id').limit(1);
     
     if (error) {
       console.error('Database connection test failed:', error);

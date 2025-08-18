@@ -195,6 +195,56 @@ functions:
           method: delete
           cors: true
 
+  # Contact extra endpoints
+  searchContacts:
+    handler: src/handlers/contacts.searchContacts
+    events:
+      - http:
+          path: /contacts/search
+          method: get
+          cors: true
+
+  contactsWithEmail:
+    handler: src/handlers/contacts.getContactsWithEmail
+    events:
+      - http:
+          path: /contacts/with-email
+          method: get
+          cors: true
+
+  contactsAvailableForEmail:
+    handler: src/handlers/contacts.getContactsAvailableForEmail
+    events:
+      - http:
+          path: /contacts/available-for-email
+          method: get
+          cors: true
+
+  markContactEmailSent:
+    handler: src/handlers/contacts.markContactEmailSent
+    events:
+      - http:
+          path: /contacts/{id}/email-sent
+          method: post
+          cors: true
+
+  contactsCount:
+    handler: src/handlers/contacts.getContactsCount
+    events:
+      - http:
+          path: /contacts/count
+          method: get
+          cors: true
+
+  # Health endpoints
+  dbHealth:
+    handler: src/handlers/health.dbHealth
+    events:
+      - http:
+          path: /health/db
+          method: get
+          cors: true
+
   # Email Campaign endpoints - REMOVED (feature not used in frontend)
 
   # Dashboard & Analytics endpoints

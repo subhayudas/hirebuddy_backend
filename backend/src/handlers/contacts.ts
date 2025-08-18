@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Contact } from '../types';
-import { executeQuery } from '../lib/database';
+import { executeQuery, getSupabaseClient } from '../lib/database';
 import { successResponse, errorResponse, corsResponse, unauthorizedResponse, notFoundResponse } from '../lib/response';
 import { requireAuth } from '../lib/auth';
 import { z } from 'zod';
@@ -31,49 +31,83 @@ export const getContacts = async (event: APIGatewayProxyEvent): Promise<APIGatew
     // Get query parameters for filtering
     const availableForEmail = event.queryStringParameters?.availableForEmail === 'true';
 
-    let query;
+    // Use a more robust approach to fetch all contacts without limits
+    const fetchAllContacts = async (client: any, filterFn?: (query: any) => any) => {
+      let allContacts: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = client.from('email_database')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + batchSize - 1);
+
+        // Apply filters if provided
+        if (filterFn) {
+          query = filterFn(query);
+        }
+
+        const { data: batch, error } = await query;
+
+        if (error) {
+          throw error;
+        }
+
+        if (!batch || batch.length === 0) {
+          hasMore = false;
+        } else {
+          allContacts = allContacts.concat(batch);
+          offset += batchSize;
+          
+          // If we got less than batchSize, we've reached the end
+          if (batch.length < batchSize) {
+            hasMore = false;
+          }
+        }
+      }
+
+      return allContacts;
+    };
+
+    let contacts;
     if (availableForEmail) {
       // Get contacts available for email (no emails sent in last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      query = async (client: any) =>
-        client.from('testdb')
-          .select('*')
-          .not('email', 'is', null)
-          .neq('email', '')
-          .or(`email_sent_on.is.null,email_sent_on.lt.${sevenDaysAgo.toISOString()}`)
-          .order('created_at', { ascending: false });
+      contacts = await executeQuery(async (client) => {
+        const allContacts = await fetchAllContacts(client, (query) =>
+          query.not('email', 'is', null)
+            .neq('email', '')
+            .or(`email_sent_on.is.null,email_sent_on.lt.${sevenDaysAgo.toISOString()}`)
+        );
+        return { data: allContacts, error: null };
+      });
     } else {
       // Get all contacts
-      query = async (client: any) =>
-        client.from('testdb')
-          .select('*')
-          .order('created_at', { ascending: false });
+      contacts = await executeQuery(async (client) => {
+        const allContacts = await fetchAllContacts(client);
+        return { data: allContacts, error: null };
+      });
     }
 
-    const { data: contacts, error } = await executeQuery(query);
-
-    if (error) {
-      console.error('Error fetching contacts:', error);
+    if (contacts.error) {
+      console.error('Error fetching contacts:', contacts.error);
       return errorResponse('Failed to fetch contacts', 500);
     }
 
     // Transform contacts to consistent format
-    const contactsList = Array.isArray(contacts) ? contacts : [];
+    const contactsList = Array.isArray(contacts.data) ? contacts.data : [];
     const transformedContacts = contactsList.map((contact: any) => ({
-      id: contact.id,
-      name: contact.full_name || contact.first_name || 'Unknown',
-      email: contact.email || '',
-      company: contact.company_name || undefined,
-      title: contact.title || undefined,
-      linkedin_link: contact.linkedin_link || undefined,
-      company_website: contact.company_website_full || undefined,
-      email_sent_on: contact.email_sent_on || undefined,
-      status: 'active',
+      ...contact,
+      name: contact.full_name || contact.first_name || contact.name || 'Unknown',
+      company: contact.company_name || contact.company || undefined,
+      company_website: contact.company_website_full || contact.company_website || undefined,
       email_sent: !!contact.email_sent_on,
-      created_at: contact.created_at,
-      updated_at: contact.created_at,
+      updated_at: contact.updated_at || contact.created_at,
+      status: contact.status || 'active'
     }));
 
     return successResponse(transformedContacts, 'Contacts retrieved successfully');
@@ -116,7 +150,7 @@ export const createContact = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     // Add contact to database
     const { data: contact, error } = await executeQuery(async (client) =>
-      client.from('testdb')
+      client.from('email_database')
         .insert([contactData])
         .select()
         .single()
@@ -172,7 +206,7 @@ export const updateContact = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     // Update contact in database
     const { data: contact, error } = await executeQuery(async (client) =>
-      client.from('testdb')
+      client.from('email_database')
         .update(updates)
         .eq('id', contactId)
         .select()
@@ -215,7 +249,7 @@ export const deleteContact = async (event: APIGatewayProxyEvent): Promise<APIGat
 
     // Delete contact from database
     const { error } = await executeQuery(async (client) =>
-      client.from('testdb')
+      client.from('email_database')
         .delete()
         .eq('id', contactId)
     );
@@ -235,3 +269,226 @@ export const deleteContact = async (event: APIGatewayProxyEvent): Promise<APIGat
     return errorResponse('Internal server error', 500);
   }
 }; 
+
+/**
+ * Search contacts by query across name/email/company
+ */
+export const searchContacts = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (event.httpMethod === 'OPTIONS') {
+      return corsResponse();
+    }
+
+    const user = requireAuth(event);
+
+    const q = event.queryStringParameters?.query?.trim();
+    if (!q) {
+      return errorResponse('Query parameter "query" is required', 400);
+    }
+
+    const orFilter = `full_name.ilike.%${q}%,first_name.ilike.%${q}%,email.ilike.%${q}%,company_name.ilike.%${q}%`;
+
+    const { data: contacts, error } = await executeQuery(async (client) =>
+      client
+        .from('email_database')
+        .select('*')
+        .or(orFilter)
+        .order('created_at', { ascending: false })
+        .limit(1000000) // Set a very high limit to effectively remove the 1000 limit
+    );
+
+    if (error) {
+      console.error('Error searching contacts:', error);
+      return errorResponse('Failed to search contacts', 500);
+    }
+
+    const contactsList = Array.isArray(contacts) ? contacts : [];
+    const transformed = contactsList.map((contact: any) => ({
+      ...contact,
+      name: contact.full_name || contact.first_name || contact.name || 'Unknown',
+      company: contact.company_name || contact.company || undefined,
+      company_website: contact.company_website_full || contact.company_website || undefined,
+      email_sent: !!contact.email_sent_on,
+      updated_at: contact.updated_at || contact.created_at,
+      status: contact.status || 'active'
+    }));
+
+    return successResponse(transformed, 'Contacts search results');
+  } catch (error) {
+    console.error('Search contacts error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
+    return errorResponse('Internal server error', 500);
+  }
+};
+
+/**
+ * List contacts with non-empty email
+ */
+export const getContactsWithEmail = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (event.httpMethod === 'OPTIONS') {
+      return corsResponse();
+    }
+
+    const user = requireAuth(event);
+
+    const { data: contacts, error } = await executeQuery(async (client) =>
+      client
+        .from('email_database')
+        .select('*')
+        .not('email', 'is', null)
+        .neq('email', '')
+        .order('created_at', { ascending: false })
+        .limit(1000000) // Set a very high limit to effectively remove the 1000 limit
+    );
+
+    if (error) {
+      console.error('Error fetching contacts with email:', error);
+      return errorResponse('Failed to fetch contacts with email', 500);
+    }
+
+    const contactsList = Array.isArray(contacts) ? contacts : [];
+    const transformed = contactsList.map((contact: any) => ({
+      ...contact,
+      name: contact.full_name || contact.first_name || contact.name || 'Unknown',
+      company: contact.company_name || contact.company || undefined,
+      company_website: contact.company_website_full || contact.company_website || undefined,
+      email_sent: !!contact.email_sent_on,
+      updated_at: contact.updated_at || contact.created_at,
+      status: contact.status || 'active'
+    }));
+
+    return successResponse(transformed, 'Contacts with email retrieved successfully');
+  } catch (error) {
+    console.error('Get contacts with email error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
+    return errorResponse('Internal server error', 500);
+  }
+};
+
+/**
+ * List contacts available for email (non-empty email and email_sent_on is null or older than 7 days)
+ */
+export const getContactsAvailableForEmail = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (event.httpMethod === 'OPTIONS') {
+      return corsResponse();
+    }
+
+    const user = requireAuth(event);
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const { data: contacts, error } = await executeQuery(async (client) =>
+      client
+        .from('email_database')
+        .select('*')
+        .not('email', 'is', null)
+        .neq('email', '')
+        .or(`email_sent_on.is.null,email_sent_on.lt.${sevenDaysAgo.toISOString()}`)
+        .order('created_at', { ascending: false })
+        .limit(1000000) // Set a very high limit to effectively remove the 1000 limit
+    );
+
+    if (error) {
+      console.error('Error fetching contacts available for email:', error);
+      return errorResponse('Failed to fetch contacts available for email', 500);
+    }
+
+    const contactsList = Array.isArray(contacts) ? contacts : [];
+    const transformed = contactsList.map((contact: any) => ({
+      ...contact,
+      name: contact.full_name || contact.first_name || contact.name || 'Unknown',
+      company: contact.company_name || contact.company || undefined,
+      company_website: contact.company_website_full || contact.company_website || undefined,
+      email_sent: !!contact.email_sent_on,
+      updated_at: contact.updated_at || contact.created_at,
+      status: contact.status || 'active'
+    }));
+
+    return successResponse(transformed, 'Contacts available for email retrieved successfully');
+  } catch (error) {
+    console.error('Get contacts available for email error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
+    return errorResponse('Internal server error', 500);
+  }
+};
+
+/**
+ * Mark a contact as email sent (sets email_sent_on = now)
+ */
+export const markContactEmailSent = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (event.httpMethod === 'OPTIONS') {
+      return corsResponse();
+    }
+
+    const user = requireAuth(event);
+
+    const contactId = event.pathParameters?.id;
+    if (!contactId) {
+      return errorResponse('Contact ID is required', 400);
+    }
+
+    const nowIso = new Date().toISOString();
+    const { data: contact, error } = await executeQuery(async (client) =>
+      client
+        .from('email_database')
+        .update({ email_sent_on: nowIso })
+        .eq('id', contactId)
+        .select()
+        .single()
+    );
+
+    if (error) {
+      console.error('Error marking contact email sent:', error);
+      return notFoundResponse('Contact not found or failed to update');
+    }
+
+    return successResponse(contact, 'Contact email_sent_on updated');
+  } catch (error) {
+    console.error('Mark contact email sent error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
+    return errorResponse('Internal server error', 500);
+  }
+};
+
+/**
+ * Get total contacts count
+ */
+export const getContactsCount = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (event.httpMethod === 'OPTIONS') {
+      return corsResponse();
+    }
+
+    const user = requireAuth(event);
+
+    const client = getSupabaseClient();
+    const { count, error } = await client
+      .from('email_database')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      console.error('Error getting contacts count:', error);
+      return errorResponse('Failed to get contacts count', 500);
+    }
+
+    return successResponse({ count: count || 0 }, 'Contacts count retrieved successfully');
+  } catch (error) {
+    console.error('Get contacts count error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return unauthorizedResponse();
+    }
+    return errorResponse('Internal server error', 500);
+  }
+};
