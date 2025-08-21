@@ -271,7 +271,13 @@ functions:
       - http:
           path: /premium/status
           method: get
-          cors: true
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
           
   getPremiumData:
     handler: src/handlers/premium.getPremiumData
@@ -279,7 +285,102 @@ functions:
       - http:
           path: /premium/data
           method: get
-          cors: true
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  # Test endpoint for debugging
+  testPremiumEndpoint:
+    handler: src/handlers/premium.testPremiumEndpoint
+    events:
+      - http:
+          path: /premium/test
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  # Premium health check (no auth required)
+  premiumHealthCheck:
+    handler: src/handlers/premium.premiumHealthCheck
+    events:
+      - http:
+          path: /premium/health
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  # Premium Users CRUD endpoints
+  premiumUsers:
+    handler: src/handlers/premium.premiumUsersHandler
+    events:
+      - http:
+          path: /premium/users
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+      - http:
+          path: /premium/users
+          method: post
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+      - http:
+          path: /premium/users
+          method: put
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+      - http:
+          path: /premium/users
+          method: delete
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  premiumCheck:
+    handler: src/handlers/premium.checkPremiumStatus
+    events:
+      - http:
+          path: /premium/check
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
 
   # Email Usage endpoints
   getEmailUsage:

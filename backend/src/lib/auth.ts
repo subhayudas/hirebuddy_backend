@@ -41,47 +41,68 @@ const base64UrlEncode = (input: string): string => {
 };
 
 const base64UrlDecode = (input: string): string => {
-  const unescaped = base64urlUnescape(input);
-  return Buffer.from(unescaped, 'base64').toString('utf8');
+  try {
+    const unescaped = base64urlUnescape(input);
+    return Buffer.from(unescaped, 'base64').toString('utf8');
+  } catch (error) {
+    console.error('Base64 decode error:', error);
+    throw new Error('Invalid token format');
+  }
 };
 
 /**
- * Verify and decode JWT token
+ * Verify and decode JWT token with better error handling
  */
 export const verifyToken = (token: string): DecodedToken | null => {
   try {
+    if (!token || typeof token !== 'string') {
+      console.error('Invalid token: token is null, undefined, or not a string');
+      return null;
+    }
+
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET not configured');
+      console.error('JWT_SECRET not configured');
+      return null;
     }
 
     const parts = token.split('.');
     if (parts.length !== 3) {
+      console.error('Invalid token format: expected 3 parts, got', parts.length);
       return null;
     }
 
     const payloadPart = parts[1];
     if (!payloadPart) {
+      console.error('Missing payload part in token');
       return null;
     }
 
-    const payload = JSON.parse(base64UrlDecode(payloadPart));
+    let payload;
+    try {
+      const decodedPayload = base64UrlDecode(payloadPart);
+      payload = JSON.parse(decodedPayload);
+    } catch (error) {
+      console.error('Failed to decode or parse token payload:', error);
+      return null;
+    }
     
     // Simple expiration check
     if (payload.exp && Date.now() >= payload.exp * 1000) {
+      console.error('Token has expired');
       return null;
     }
 
     // Map possible Supabase/JWT payload shapes to our DecodedToken
     const mapped: DecodedToken = {
-      userId: payload.userId || payload.sub,
+      userId: payload.userId || payload.sub || payload.user_id,
       email: payload.email,
       iat: payload.iat,
       exp: payload.exp
     };
 
     if (!mapped.userId || !mapped.email) {
-      // If missing essential fields, consider invalid
+      console.error('Token missing required fields:', { userId: mapped.userId, email: mapped.email });
       return null;
     }
 
@@ -123,36 +144,49 @@ export const generateToken = (user: AuthenticatedUser): string => {
 };
 
 /**
- * Extract authenticated user from event
+ * Extract authenticated user from event with better error handling
  */
 export const getAuthenticatedUser = (event: APIGatewayProxyEvent): AuthenticatedUser | null => {
-  const token = extractTokenFromHeader(event);
-  
-  if (!token) {
+  try {
+    const token = extractTokenFromHeader(event);
+    
+    if (!token) {
+      console.log('No token found in request headers');
+      return null;
+    }
+
+    const decoded = verifyToken(token);
+    
+    if (!decoded) {
+      console.log('Token verification failed');
+      return null;
+    }
+
+    return {
+      id: decoded.userId,
+      email: decoded.email
+    };
+  } catch (error) {
+    console.error('Error in getAuthenticatedUser:', error);
     return null;
   }
-
-  const decoded = verifyToken(token);
-  
-  if (!decoded) {
-    return null;
-  }
-
-  return {
-    id: decoded.userId,
-    email: decoded.email
-  };
 };
 
 /**
- * Check if user is authenticated
+ * Check if user is authenticated with better error handling
  */
 export const requireAuth = (event: APIGatewayProxyEvent): AuthenticatedUser => {
-  const user = getAuthenticatedUser(event);
-  
-  if (!user) {
+  try {
+    const user = getAuthenticatedUser(event);
+    
+    if (!user) {
+      console.log('Authentication required but no valid user found');
+      throw new Error('Authentication required');
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('Error in requireAuth:', error);
     throw new Error('Authentication required');
   }
-  
-  return user;
 }; 

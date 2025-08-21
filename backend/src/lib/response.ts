@@ -1,4 +1,16 @@
 import { APIGatewayProxyResult, ApiResponse } from '../types';
+import { getSecurityHeaders } from './security';
+
+/**
+ * Get CORS headers
+ */
+const getCorsHeaders = () => ({
+  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Requested-With',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Max-Age': '86400'
+});
 
 /**
  * Create a successful API response
@@ -13,10 +25,9 @@ export const successResponse = <T>(data: T, message?: string, statusCode: number
   return {
     statusCode,
     headers: {
-      'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*',
-      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-      'Content-Type': 'application/json'
+      ...getCorsHeaders(),
+      'Content-Type': 'application/json',
+      ...getSecurityHeaders()
     },
     body: JSON.stringify(response)
   };
@@ -34,10 +45,9 @@ export const errorResponse = (error: string, statusCode: number = 400): APIGatew
   return {
     statusCode,
     headers: {
-      'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*',
-      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-      'Content-Type': 'application/json'
+      ...getCorsHeaders(),
+      'Content-Type': 'application/json',
+      ...getSecurityHeaders()
     },
     body: JSON.stringify(response)
   };
@@ -54,7 +64,21 @@ export const validationErrorResponse = (errors: string[]): APIGatewayProxyResult
  * Create an unauthorized response
  */
 export const unauthorizedResponse = (message: string = 'Unauthorized'): APIGatewayProxyResult => {
-  return errorResponse(message, 401);
+  const response: ApiResponse = {
+    success: false,
+    error: message
+  };
+
+  return {
+    statusCode: 401,
+    headers: {
+      ...getCorsHeaders(),
+      'Content-Type': 'application/json',
+      'WWW-Authenticate': 'Bearer',
+      ...getSecurityHeaders()
+    },
+    body: JSON.stringify(response)
+  };
 };
 
 /**
@@ -78,9 +102,8 @@ export const corsResponse = (): APIGatewayProxyResult => {
   return {
     statusCode: 200,
     headers: {
-      'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*',
-      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      ...getCorsHeaders(),
+      'Content-Type': 'text/plain'
     },
     body: ''
   };

@@ -16,7 +16,7 @@ export const dbHealth = async (event: APIGatewayProxyEvent): Promise<APIGatewayP
       return errorResponse(`Database not healthy: ${result.message}`, 500);
     }
 
-    return successResponse({ ok: true }, 'Database connection healthy');
+    return successResponse({ ok: true }, result.message);
   } catch (error) {
     console.error('DB health error:', error);
     return errorResponse('Internal server error', 500);

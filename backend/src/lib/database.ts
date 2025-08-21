@@ -32,14 +32,32 @@ export const getSupabaseClient = (): SupabaseClient => {
 export const testDatabaseConnection = async (): Promise<{ success: boolean; message: string }> => {
   try {
     const client = getSupabaseClient();
-    const { data, error } = await client.from('email_database').select('id').limit(1);
     
-    if (error) {
-      console.error('Database connection test failed:', error);
-      return { success: false, message: `Database connection failed: ${error.message}` };
+    // Test email_database table
+    const { data: emailData, error: emailError } = await client.from('email_database').select('id').limit(1);
+    
+    if (emailError) {
+      console.error('Email database connection test failed:', emailError);
+      return { success: false, message: `Email database connection failed: ${emailError.message}` };
     }
 
-    return { success: true, message: 'Database connection successful' };
+    // Test paid_users table
+    const { data: paidUsersData, error: paidUsersError } = await client.from('paid_users').select('id').limit(1);
+    
+    if (paidUsersError) {
+      console.error('Paid users table connection test failed:', paidUsersError);
+      return { success: false, message: `Paid users table connection failed: ${paidUsersError.message}` };
+    }
+
+    // Test totalemailcounttable
+    const { data: emailCountData, error: emailCountError } = await client.from('totalemailcounttable').select('id').limit(1);
+    
+    if (emailCountError) {
+      console.error('Total email count table connection test failed:', emailCountError);
+      return { success: false, message: `Total email count table connection failed: ${emailCountError.message}` };
+    }
+
+    return { success: true, message: 'Database connection successful (all tables accessible)' };
   } catch (error) {
     console.error('Database connection test error:', error);
     return { success: false, message: `Database connection error: ${error instanceof Error ? error.message : 'Unknown error'}` };

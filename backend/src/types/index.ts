@@ -11,6 +11,10 @@ export interface APIGatewayProxyEvent {
     stage: string;
     httpMethod: string;
     path: string;
+    identity?: {
+      sourceIp?: string;
+      userAgent?: string;
+    };
   };
   isBase64Encoded: boolean;
 }
@@ -121,4 +125,65 @@ export interface JobApplication {
   available_for_work?: boolean;
   resume_url?: string;
   resume_filename?: string;
+}
+
+// Premium User Types
+export interface PremiumUser {
+  id: number;
+  created_at: string;
+  email: string;
+  name: string;
+  phone: string;
+  zoom_id: string;
+  designation: string;
+  order_id: string;
+  amount: number;
+}
+
+export interface PremiumUserCreate {
+  email: string;
+  name: string;
+  phone: string;
+  zoom_id: string;
+  designation: string;
+  order_id: string;
+  amount: number;
+}
+
+export interface PremiumUserUpdate {
+  name?: string;
+  phone?: string;
+  zoom_id?: string;
+  designation?: string;
+  order_id?: string;
+  amount?: number;
+}
+
+// Email Usage Types
+export interface EmailCountRecord {
+  id: string;
+  created_at: string;
+  total_count: number;
+  user_id: string;
+  email_limit: number;
+}
+
+export interface EmailUsageResponse {
+  used: number;
+  limit: number;
+  remaining: number;
+  percentage: number;
+  canSendEmail: boolean;
+}
+
+export interface EmailIncrementRequest {
+  count?: number;
+}
+
+export interface EmailIncrementResponse {
+  previousCount: number;
+  newCount: number;
+  limit: number;
+  remaining: number;
+  canSendEmail: boolean;
 } 
