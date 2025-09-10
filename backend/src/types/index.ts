@@ -186,4 +186,128 @@ export interface EmailIncrementResponse {
   limit: number;
   remaining: number;
   canSendEmail: boolean;
+}
+
+// Referral System Types
+export interface ReferralCode {
+  id: string;
+  user_id: string;
+  referral_code: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Referral {
+  id: string;
+  referrer_id: string;
+  referred_email: string;
+  referral_code_id: string;
+  status: 'pending' | 'completed' | 'expired';
+  created_at: string;
+  completed_at?: string;
+  expires_at: string;
+}
+
+export interface ReferralReward {
+  id: string;
+  user_id: string;
+  completed_referrals: number;
+  premium_granted: boolean;
+  premium_granted_at?: string;
+  premium_expires_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReferralStats {
+  user: {
+    id: string;
+    referralCode: string | null;
+    codeCreatedAt: string | null;
+  };
+  rewards: {
+    completedReferrals: number;
+    premiumGranted: boolean;
+    premiumGrantedAt: string | null;
+    premiumExpiresAt: string | null;
+  };
+  statistics: {
+    totalReferrals: number;
+    completedReferrals: number;
+    pendingReferrals: number;
+    expiredReferrals: number;
+    referralsNeededForPremium: number;
+    progressPercentage: number;
+  };
+  referrals: Referral[];
+}
+
+export interface AdminReferralSummary {
+  email: string;
+  completed_referrals: number;
+  premium_granted: boolean;
+  premium_granted_at?: string;
+  premium_expires_at?: string;
+  total_referrals: number;
+  completed_count: number;
+  pending_count: number;
+  expired_count: number;
+}
+
+export interface ReferralStatistics {
+  total_referrals: number;
+  completed_referrals: number;
+  pending_referrals: number;
+  expired_referrals: number;
+  unique_referrers: number;
+  unique_referred_emails: number;
+}
+
+export interface ReferralProgress {
+  email: string;
+  completed_referrals: number;
+  progress_status: string;
+  referrals_needed_for_premium: number;
+}
+
+// Referral API Request/Response Types
+export interface GenerateReferralCodeRequest {
+  userId?: string;
+}
+
+export interface GenerateReferralCodeResponse {
+  referralCode: string;
+  message: string;
+  isNew: boolean;
+  createdAt?: string;
+}
+
+export interface ApplyReferralCodeRequest {
+  referralCode: string;
+  userEmail: string;
+  userId?: string;
+}
+
+export interface ApplyReferralCodeResponse {
+  referralId: string;
+  message: string;
+  referrerId: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface CompleteReferralRequest {
+  referralId: string;
+  completedBy?: string;
+}
+
+export interface CompleteReferralResponse {
+  referral: Referral;
+  message: string;
+}
+
+export interface ValidateReferralCodeResponse {
+  valid: boolean;
+  referralCode: string;
+  message: string;
 } 

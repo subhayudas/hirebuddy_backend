@@ -150,6 +150,13 @@ const token = 'your-jwt-token';
 
 // Check current usage
 const usage = await getEmailUsage(token);
+
+// Handle case where no email record exists
+if (usage.data.limit === 0) {
+  console.log('No email record found. Please contact support for initialization.');
+  return;
+}
+
 console.log(`Used: ${usage.data.used}/${usage.data.limit} emails`);
 
 // Send an email and increment count
@@ -158,7 +165,11 @@ if (usage.data.canSendEmail) {
   
   // Increment count
   const increment = await incrementEmailCount(token, 1);
-  console.log(`Email count updated: ${increment.data.newCount}`);
+  if (increment.success) {
+    console.log(`Email count updated: ${increment.data.newCount}`);
+  } else {
+    console.error('Failed to increment email count:', increment.message);
+  }
 }
 ```
 
@@ -198,6 +209,56 @@ Common error scenarios:
 - **Validation errors**: Invalid request parameters
 - **Database errors**: Connection or query failures
 - **Rate limiting**: Too many requests (if configured)
+- **No email record**: User doesn't have an email record initialized (404 error)
+
+## Security Implementation
+
+### Email Record Initialization
+- **No automatic creation**: Email records are NOT automatically created from client requests
+- **Server-side only**: Records must be initialized using server-side functions
+- **Controlled access**: Only authorized server operations can create email records
+
+### Response When No Record Exists
+
+**GET /email/usage** (no record):
+```json
+{
+  "success": true,
+  "data": {
+    "used": 0,
+    "limit": 0,
+    "remaining": 0,
+    "percentage": 0,
+    "canSendEmail": false
+  },
+  "message": "No email usage record found. Please contact support for initialization."
+}
+```
+
+**POST /email/increment** (no record):
+```json
+{
+  "success": false,
+  "message": "No email usage record found. Please contact support for initialization.",
+  "statusCode": 404
+}
+```
+
+### Server-Side Initialization
+
+Email records should be initialized using server-side functions:
+
+```typescript
+import { initializeEmailRecord } from './src/handlers/email';
+
+// Initialize email record for a new user
+const result = await initializeEmailRecord('user@example.com', 125);
+if (result.success) {
+  console.log('Email record created successfully');
+} else {
+  console.error('Failed to create email record:', result.error);
+}
+```
 
 ## Rate Limiting
 

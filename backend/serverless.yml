@@ -399,6 +399,91 @@ functions:
           method: post
           cors: true
 
+  # Email Log endpoints
+  getEmailStats:
+    handler: src/handlers/emailLog.getEmailStats
+    events:
+      - http:
+          path: /api/email/stats
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+          
+  getContactsWithEmails:
+    handler: src/handlers/emailLog.getContactsWithEmails
+    events:
+      - http:
+          path: /api/email/contacts-with-emails
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+          
+  getConversationHistory:
+    handler: src/handlers/emailLog.getConversationHistory
+    events:
+      - http:
+          path: /api/email/conversation-history/{contactId}
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+          
+  getConversationStats:
+    handler: src/handlers/emailLog.getConversationStats
+    events:
+      - http:
+          path: /api/email/conversation-stats/{contactId}
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+          
+  logEmail:
+    handler: src/handlers/emailLog.logEmail
+    events:
+      - http:
+          path: /api/email/log
+          method: post
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+          
+  getFollowupsNeeded:
+    handler: src/handlers/emailLog.getFollowupsNeeded
+    events:
+      - http:
+          path: /api/email/followups-needed
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
   # OpenAI proxy endpoint
   openaiProxy:
     handler: src/handlers/openai.openaiProxy
@@ -407,6 +492,134 @@ functions:
           path: /openai/proxy
           method: post
           cors: true
+
+  # Referral System endpoints
+  generateReferralCode:
+    handler: src/handlers/referral.generateReferralCode
+    events:
+      - http:
+          path: /referral/generate-code
+          method: post
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  applyReferralCode:
+    handler: src/handlers/referral.applyReferralCode
+    events:
+      - http:
+          path: /referral/apply-code
+          method: post
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  getReferralStats:
+    handler: src/handlers/referral.getReferralStats
+    events:
+      - http:
+          path: /referral/stats
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  getReferralProgress:
+    handler: src/handlers/referral.getReferralProgress
+    events:
+      - http:
+          path: /referral/progress
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  completeReferral:
+    handler: src/handlers/referral.completeReferral
+    events:
+      - http:
+          path: /referral/complete
+          method: post
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  getAdminReferralStats:
+    handler: src/handlers/referral.getAdminReferralStats
+    events:
+      - http:
+          path: /referral/admin/stats
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  validateReferralCode:
+    handler: src/handlers/referral.validateReferralCode
+    events:
+      - http:
+          path: /referral/validate
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  # Referral System Health Check endpoints
+  referralHealthCheck:
+    handler: src/handlers/referralHealth.referralHealthCheck
+    events:
+      - http:
+          path: /referral/health
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
+
+  testReferralSystem:
+    handler: src/handlers/referralHealth.testReferralSystem
+    events:
+      - http:
+          path: /referral/test
+          method: get
+          cors:
+            origin: ${env:CORS_ORIGIN, '*'}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allowCredentials: true
 
 resources:
   Resources:

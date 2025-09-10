@@ -38,32 +38,16 @@ export const getEmailUsage = async (event: APIGatewayProxyEvent): Promise<APIGat
     const emailCount = emailCounts && emailCounts.length > 0 ? emailCounts[0] : null;
 
     if (!emailCount) {
-      // Create initial record if doesn't exist
-      const { data: newRecord, error: insertError } = await executeQuery<EmailCountRecord>(async (client) =>
-        client.from('totalemailcounttable')
-          .insert({
-            user_id: user.email,
-            total_count: 0,
-            email_limit: 125
-          })
-          .select()
-          .single()
-      );
-
-      if (insertError) {
-        console.error('Failed to create initial email record:', insertError);
-        return errorResponse('Failed to initialize email usage', 500);
-      }
-
+      // Return response indicating no record exists - no auto-creation
       const usage: EmailUsageResponse = {
         used: 0,
-        limit: 125,
-        remaining: 125,
+        limit: 0,
+        remaining: 0,
         percentage: 0,
-        canSendEmail: true
+        canSendEmail: false
       };
 
-      return successResponse(usage, 'Email usage retrieved successfully');
+      return successResponse(usage, 'No email usage record found. Please contact support for initialization.');
     }
 
     const used = emailCount.total_count || 0;
@@ -133,43 +117,15 @@ export const incrementEmailCount = async (event: APIGatewayProxyEvent): Promise<
     // Check if user has an email count record
     const currentCount = currentCounts && currentCounts.length > 0 ? currentCounts[0] : null;
 
-    let previousCount = 0;
-    let newCount = count;
-    let limit = 125;
-
     if (!currentCount) {
-      // Create initial record
-      const { data: newRecord, error: insertError } = await executeQuery<EmailCountRecord>(async (client) =>
-        client.from('totalemailcounttable')
-          .insert({
-            user_id: user.email,
-            total_count: count,
-            email_limit: 125
-          })
-          .select()
-          .single()
-      );
-
-      if (insertError) {
-        console.error('Failed to create initial email record:', insertError);
-        return errorResponse('Failed to initialize email count', 500);
-      }
-
-      const response: EmailIncrementResponse = {
-        previousCount: 0,
-        newCount: count,
-        limit: 125,
-        remaining: Math.max(0, 125 - count),
-        canSendEmail: (125 - count) > 0
-      };
-
-      return successResponse(response, 'Email count initialized and incremented');
+      // Return error - no auto-creation allowed
+      return errorResponse('No email usage record found. Please contact support for initialization.', 404);
     }
 
     // Update count
-    previousCount = currentCount.total_count || 0;
-    newCount = previousCount + count;
-    limit = currentCount.email_limit || 125;
+    const previousCount = currentCount.total_count || 0;
+    const newCount = previousCount + count;
+    const limit = currentCount.email_limit || 125;
 
     const { data: updatedRecord, error: updateError } = await executeQuery<EmailCountRecord>(async (client) =>
       client.from('totalemailcounttable')
@@ -203,5 +159,85 @@ export const incrementEmailCount = async (event: APIGatewayProxyEvent): Promise<
       return unauthorizedResponse();
     }
     return errorResponse('Internal server error', 500);
+  }
+}; 
+
+/**
+ * Initialize email record for a user (Admin/Server-side only)
+ * This function should only be called from server-side operations, not from client requests
+ */
+export const initializeEmailRecord = async (userId: string, emailLimit: number = 125): Promise<{ success: boolean; data?: EmailCountRecord; error?: string }> => {
+  try {
+    // Check if record already exists
+    const { data: existingRecords, error: selectError } = await executeQuery<EmailCountRecord[]>(async (client) =>
+      client.from('totalemailcounttable')
+        .select('*')
+        .eq('user_id', userId)
+    );
+
+    if (selectError) {
+      console.error('Database error checking existing email record:', selectError);
+      return { success: false, error: 'Failed to check existing email record' };
+    }
+
+    // If record already exists, return it
+    if (existingRecords && existingRecords.length > 0 && existingRecords[0]) {
+      return { success: true, data: existingRecords[0] };
+    }
+
+    // Create new record
+    const { data: newRecord, error: insertError } = await executeQuery<EmailCountRecord>(async (client) =>
+      client.from('totalemailcounttable')
+        .insert({
+          user_id: userId,
+          total_count: 0,
+          email_limit: emailLimit
+        })
+        .select()
+        .single()
+    );
+
+    if (insertError) {
+      console.error('Failed to create email record:', insertError);
+      return { success: false, error: 'Failed to create email record' };
+    }
+
+    if (!newRecord) {
+      return { success: false, error: 'Failed to create email record - no data returned' };
+    }
+
+    return { success: true, data: newRecord };
+  } catch (error) {
+    console.error('Initialize email record error:', error);
+    return { success: false, error: 'Internal server error' };
+  }
+};
+
+/**
+ * Update email limit for a user (Admin/Server-side only)
+ */
+export const updateEmailLimit = async (userId: string, newLimit: number): Promise<{ success: boolean; data?: EmailCountRecord; error?: string }> => {
+  try {
+    const { data: updatedRecord, error: updateError } = await executeQuery<EmailCountRecord>(async (client) =>
+      client.from('totalemailcounttable')
+        .update({ email_limit: newLimit })
+        .eq('user_id', userId)
+        .select()
+        .single()
+    );
+
+    if (updateError) {
+      console.error('Failed to update email limit:', updateError);
+      return { success: false, error: 'Failed to update email limit' };
+    }
+
+    if (!updatedRecord) {
+      return { success: false, error: 'Failed to update email limit - no data returned' };
+    }
+
+    return { success: true, data: updatedRecord };
+  } catch (error) {
+    console.error('Update email limit error:', error);
+    return { success: false, error: 'Internal server error' };
   }
 }; 

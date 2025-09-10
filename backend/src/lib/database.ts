@@ -57,7 +57,29 @@ export const testDatabaseConnection = async (): Promise<{ success: boolean; mess
       return { success: false, message: `Total email count table connection failed: ${emailCountError.message}` };
     }
 
-    return { success: true, message: 'Database connection successful (all tables accessible)' };
+    // Test referral system tables
+    const { data: referralCodesData, error: referralCodesError } = await client.from('user_referral_codes').select('id').limit(1);
+    
+    if (referralCodesError) {
+      console.error('User referral codes table connection test failed:', referralCodesError);
+      return { success: false, message: `User referral codes table connection failed: ${referralCodesError.message}` };
+    }
+
+    const { data: referralsData, error: referralsError } = await client.from('referrals').select('id').limit(1);
+    
+    if (referralsError) {
+      console.error('Referrals table connection test failed:', referralsError);
+      return { success: false, message: `Referrals table connection failed: ${referralsError.message}` };
+    }
+
+    const { data: referralRewardsData, error: referralRewardsError } = await client.from('referral_rewards').select('id').limit(1);
+    
+    if (referralRewardsError) {
+      console.error('Referral rewards table connection test failed:', referralRewardsError);
+      return { success: false, message: `Referral rewards table connection failed: ${referralRewardsError.message}` };
+    }
+
+    return { success: true, message: 'Database connection successful (all tables accessible including referral system)' };
   } catch (error) {
     console.error('Database connection test error:', error);
     return { success: false, message: `Database connection error: ${error instanceof Error ? error.message : 'Unknown error'}` };
